@@ -86,37 +86,74 @@
             </tr>
         </thead>
         <tbody>
-            {% for record in records.items %}
-            <tr data-record-id="{{ record.id }}">
-                <td>{{ record.id }}</td>
-                <td>{{ record.full_name }}</td>
-                <td>{{ record.id_passport_number }}</td>
-                <td>{{ record.date_of_birth.strftime('%Y-%m-%d') }}</td>
-                <td>{{ record.phone_number or '-' }}</td>
-                <td>{{ record.gender }}</td>
+            {% for head_record in records.items %}
+            <tr data-record-id="{{ head_record.id }}" class="head-of-household-row">
+                <td>{{ head_record.id }}</td>
                 <td>
-                    <span class="status-badge {% if record.status == 'مكتمل' %}status-completed{% elif record.status == 'بحاجة لمراجعة' %}status-review{% else %}status-inactive{% endif %}">
-                        {{ record.status }}
+                    <strong>{{ head_record.full_name }} (رب أسرة)</strong>
+                </td>
+                <td>{{ head_record.id_passport_number }}</td>
+                <td>{{ head_record.date_of_birth.strftime('%Y-%m-%d') }}</td>
+                <td>{{ head_record.phone_number or '-' }}</td>
+                <td>{{ head_record.gender }}</td>
+                <td>
+                    <span class="status-badge {% if head_record.status == 'مكتمل' %}status-completed{% elif head_record.status == 'بحاجة لمراجعة' %}status-review{% else %}status-inactive{% endif %}">
+                        {{ head_record.status }}
                     </span>
                 </td>
-                <td>{{ record.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>{{ head_record.created_at.strftime('%Y-%m-%d') }}</td>
                 <td>
                     <div class="action-buttons">
-                        <button type="button" class="action-btn edit" data-modal-target="#editBeneficiaryModal" data-record-id="{{ record.id }}" title="تعديل">
+                        <button type="button" class="action-btn edit" data-modal-target="#editBeneficiaryModal" data-record-id="{{ head_record.id }}" title="تعديل رب الأسرة">
                             <i class="fas fa-edit"></i>
                         </button>
-                        
-                        <form method="POST" action="{{ url_for('routes.delete_beneficiary', record_id=record.id) }}" style="display: inline;">
-                            <button type="submit" class="action-btn delete" data-confirm="هل أنت متأكد من حذف هذا المستفيد؟" title="حذف">
+                        <form method="POST" action="{{ url_for('routes.delete_beneficiary', record_id=head_record.id) }}" style="display: inline;">
+                            <button type="submit" class="action-btn delete" data-confirm="هل أنت متأكد من حذف رب الأسرة هذا؟ سيتم فصل أفراد الأسرة." title="حذف رب الأسرة">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </form>
-                        
-                        <a href="{{ url_for('routes.generate_pdf', record_id=record.id) }}" class="action-btn pdf" title="تصدير PDF">
+                        <a href="{{ url_for('routes.generate_pdf', record_id=head_record.id) }}" class="action-btn pdf" title="تصدير PDF لرب الأسرة">
                             <i class="fas fa-file-pdf"></i>
                         </a>
                     </div>
                 </td>
+            </tr>
+                {% for member_record in head_record.family_members.all() %}
+                <tr data-record-id="{{ member_record.id }}" class="family-member-row">
+                    <td>{{ member_record.id }}</td>
+                    <td style="padding-right: 30px !important;"> <!-- Indent family member name -->
+                        <i class="fas fa-level-up-alt fa-rotate-90" style="margin-left: 5px; color: var(--gray);"></i> {{ member_record.full_name }} (تابع)
+                    </td>
+                    <td>{{ member_record.id_passport_number }}</td>
+                    <td>{{ member_record.date_of_birth.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ member_record.phone_number or '-' }}</td>
+                    <td>{{ member_record.gender }}</td>
+                    <td>
+                        <span class="status-badge {% if member_record.status == 'مكتمل' %}status-completed{% elif member_record.status == 'بحاجة لمراجعة' %}status-review{% else %}status-inactive{% endif %}">
+                            {{ member_record.status }}
+                        </span>
+                    </td>
+                    <td>{{ member_record.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button type="button" class="action-btn edit" data-modal-target="#editBeneficiaryModal" data-record-id="{{ member_record.id }}" title="تعديل فرد الأسرة">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form method="POST" action="{{ url_for('routes.delete_beneficiary', record_id=member_record.id) }}" style="display: inline;">
+                                <button type="submit" class="action-btn delete" data-confirm="هل أنت متأكد من حذف فرد الأسرة هذا؟" title="حذف فرد الأسرة">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            <a href="{{ url_for('routes.generate_pdf', record_id=member_record.id) }}" class="action-btn pdf" title="تصدير PDF لفرد الأسرة">
+                                <i class="fas fa-file-pdf"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="9" class="text-center">لا يوجد مستفيدين للعرض حالياً.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -240,6 +277,16 @@
                         <option value="غير نشط">غير نشط</option>
                     </select>
                 </div>
+
+                <div class="form-group">
+                    <label for="add_head_of_household_id">رب الأسرة (اختياري)</label>
+                    <select id="add_head_of_household_id" name="head_of_household_id" class="form-control">
+                        <option value="">-- لا يوجد (هذا المستفيد هو رب أسرة مستقل) --</option>
+                        {% for head in potential_heads_of_household %}
+                            <option value="{{ head.id }}">{{ head.full_name }} ({{ head.id_passport_number }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 
                 <div class="form-group text-center">
                     <button type="submit" class="btn btn-primary">
@@ -336,6 +383,16 @@
                         <option value="غير نشط">غير نشط</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="edit_head_of_household_id">رب الأسرة (اختياري)</label>
+                    <select id="edit_head_of_household_id" name="head_of_household_id" class="form-control">
+                        <option value="">-- لا يوجد (هذا المستفيد هو رب أسرة مستقل) --</option>
+                        {# This loop will be populated by JS or needs data passed to the main beneficiaries page #}
+                        {% for head in potential_heads_of_household %}
+                            <option value="{{ head.id }}">{{ head.full_name }} ({{ head.id_passport_number }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="form-group text-center">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i>
@@ -368,22 +425,63 @@
         document.querySelectorAll('.action-btn.edit').forEach(button => {
             button.addEventListener('click', function() {
                 const recordId = this.dataset.recordId;
-                const row = this.closest('tr');
-
-                // Set form action URL
                 editForm.action = `/edit_beneficiary/${recordId}`;
 
-                // Fetch full data via an API call - this is more robust
-                // For now, we can use a simpler approach if the data is available,
-                // but an API is better. Let's assume an API endpoint `/api/beneficiary/${recordId}` exists.
-                // As a fallback, we can try to parse from the table, but it's limited.
-                
-                // Let's create a placeholder for a future API call. For now, we will
-                // just open the modal. A more advanced implementation would fetch data here.
-                // A very basic population (not recommended for production):
-                editForm.querySelector('#edit_first_name').value = row.cells[1].textContent.split(' ')[0];
-                //... and so on for other fields, which is tedious.
-                // An API call is the correct way.
+                fetch(`/api/beneficiary/${recordId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if(data.error) {
+                            alert('Error fetching beneficiary data: ' + data.error);
+                            return;
+                        }
+                        editForm.querySelector('#edit_first_name').value = data.first_name || '';
+                        editForm.querySelector('#edit_father_name').value = data.father_name || '';
+                        editForm.querySelector('#edit_grandfather_name').value = data.grandfather_name || '';
+                        editForm.querySelector('#edit_family_name').value = data.family_name || '';
+                        editForm.querySelector('#edit_id_passport_number').value = data.id_passport_number || '';
+
+                        // Ensure date is in YYYY-MM-DD format for the input
+                        let dob = '';
+                        if (data.date_of_birth) {
+                            if (data.date_of_birth.includes('T')) { // Check if it's ISO 8601 with time
+                                dob = data.date_of_birth.split('T')[0];
+                            } else { // Assume it's already YYYY-MM-DD
+                                dob = data.date_of_birth;
+                            }
+                        }
+                        editForm.querySelector('#edit_date_of_birth').value = dob;
+
+                        editForm.querySelector('#edit_gender').value = data.gender || '';
+                        editForm.querySelector('#edit_marital_status').value = data.marital_status || '';
+                        editForm.querySelector('#edit_phone_number').value = data.phone_number || '';
+                        editForm.querySelector('#edit_family_members_count').value = data.family_members_count || 0;
+                        editForm.querySelector('#edit_address').value = data.address || '';
+                        editForm.querySelector('#edit_status').value = data.status || '';
+
+                        const headSelect = editForm.querySelector('#edit_head_of_household_id');
+                        headSelect.innerHTML = '<option value="">-- لا يوجد (هذا المستفيد هو رب أسرة مستقل) --</option>'; // Clear existing options
+
+                        data.potential_heads_options.forEach(head => {
+                            const option = document.createElement('option');
+                            option.value = head.id;
+                            option.textContent = `${head.full_name} (${head.id_passport_number})`;
+                            if (data.head_of_household_id === head.id) {
+                                option.selected = true;
+                            }
+                            headSelect.appendChild(option);
+                        });
+                        // Ensure current head is selected if it exists
+                        if (data.head_of_household_id) {
+                           headSelect.value = data.head_of_household_id;
+                        } else {
+                           headSelect.value = "";
+                        }
+
+                    })
+                    .catch(error => {
+                        console.error('Error fetching beneficiary data:', error);
+                        alert('حدث خطأ أثناء جلب بيانات المستفيد.');
+                    });
             });
         });
     });

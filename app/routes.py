@@ -96,11 +96,18 @@ def dashboard():
 @login_required
 def beneficiaries():
     page = request.args.get('page', 1, type=int)
-    per_page = 10
-    query = Record.query
+    per_page = 10  # This will apply to heads of household
+
+    # Base query: only heads of household
+    query = Record.query.filter(Record.head_of_household_id.is_(None))
+
     search = request.args.get('search', '')
     if search:
         search_term = f"%{search}%"
+        # Modify search to also look into family members if a head matches,
+        # or search normally if it's a general search.
+        # For now, simple search on heads of household.
+        # A more complex search would require joining or subqueries.
         query = query.filter(or_(
             Record.first_name.ilike(search_term), Record.father_name.ilike(search_term),
             Record.grandfather_name.ilike(search_term), Record.family_name.ilike(search_term),
@@ -117,14 +124,32 @@ def beneficiaries():
         query = query.filter(Record.created_at <= datetime.strptime(end_date_str, '%Y-%m-%d').date())
     
     records = query.order_by(Record.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    # Fetch potential heads of household for modals
+    # A head of household is a record that is not a family member of someone else
+    potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+
     return render_template('beneficiaries.html', records=records, search=search, 
-                           status_filter=status_filter, start_date=start_date_str, end_date=end_date_str)
+                           status_filter=status_filter, start_date=start_date_str, end_date=end_date_str,
+                           potential_heads_of_household=potential_heads)
 
 @bp.route('/add_single_beneficiary', methods=['GET', 'POST'])
 @login_required
 def add_single_beneficiary():
     if request.method == 'POST':
         try:
+            head_of_household_id_str = request.form.get('head_of_household_id')
+            head_of_household_id = int(head_of_household_id_str) if head_of_household_id_str else None
+
+            # Basic validation to prevent self-assignment (though UI should ideally prevent this)
+            # More complex cycle detection is out of scope for now.
+            if head_of_household_id and 'id' in request.form and int(request.form['id']) == head_of_household_id:
+                flash('لا يمكن تعيين المستفيد كرب أسرة لنفسه.', 'error')
+                # Re-render form with potential heads
+                potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+                return render_template('add_single_beneficiary.html', potential_heads_of_household=potential_heads, existing_record=request.form), 400
+
+
             record = Record(
                 first_name=request.form['first_name'],
                 father_name=request.form['father_name'],
@@ -138,7 +163,8 @@ def add_single_beneficiary():
                 family_members_count=int(request.form.get('family_members_count', 0)),
                 address=request.form.get('address', ''),
                 status=request.form['status'],
-                created_by_user_id=current_user.id
+                created_by_user_id=current_user.id,
+                head_of_household_id=head_of_household_id
             )
             db.session.add(record)
             db.session.commit()
@@ -147,9 +173,15 @@ def add_single_beneficiary():
         except Exception as e:
             db.session.rollback()
             flash(f'حدث خطأ أثناء إضافة المستفيد: {str(e)}', 'error')
-    return render_template('add_single_beneficiary.html')
+            # Re-render form with potential heads in case of error
+            potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+            return render_template('add_single_beneficiary.html', potential_heads_of_household=potential_heads, existing_record=request.form), 500
 
-@bp.route('/edit_beneficiary/<int:record_id>', methods=['POST'])
+    # GET request or failed POST
+    potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+    return render_template('add_single_beneficiary.html', potential_heads_of_household=potential_heads)
+
+@bp.route('/edit_beneficiary/<int:record_id>', methods=['POST']) # Should also handle GET for a dedicated edit page
 @login_required
 def edit_beneficiary(record_id):
     record = Record.query.get_or_404(record_id)
@@ -162,8 +194,16 @@ def edit_beneficiary(record_id):
             'gender': request.form['gender'], 'marital_status': request.form['marital_status'],
             'phone_number': request.form.get('phone_number', ''),
             'family_members_count': int(request.form.get('family_members_count', 0)),
-            'address': request.form.get('address', ''), 'status': request.form['status']
+            'address': request.form.get('address', ''), 'status': request.form['status'],
+            'head_of_household_id': int(request.form.get('head_of_household_id')) if request.form.get('head_of_household_id') else None,
         }
+
+        # Prevent assigning self as head of household
+        if updated_data['head_of_household_id'] == record_id:
+            flash('لا يمكن تعيين المستفيد كرب أسرة لنفسه.', 'error')
+            # Note: ideally, re-render an edit form here if it were a GET/POST edit page
+            return redirect(url_for('routes.beneficiaries'))
+
         if current_user.is_admin():
             for key, value in updated_data.items():
                 if key == 'date_of_birth': value = datetime.strptime(value, '%Y-%m-%d').date()
@@ -172,9 +212,28 @@ def edit_beneficiary(record_id):
             db.session.commit()
             flash('تم تحديث بيانات المستفيد بنجاح', 'success')
         else:
+            # For non-admins, compare with original record to only store actual changes
+            original_data = {
+                'first_name': record.first_name, 'father_name': record.father_name,
+                'grandfather_name': record.grandfather_name, 'family_name': record.family_name,
+                'id_passport_number': record.id_passport_number,
+                'date_of_birth': record.date_of_birth.strftime('%Y-%m-%d'),
+                'gender': record.gender, 'marital_status': record.marital_status,
+                'phone_number': record.phone_number or '',
+                'family_members_count': record.family_members_count,
+                'address': record.address or '', 'status': record.status,
+                'head_of_household_id': record.head_of_household_id
+            }
+
+            diff_data = {k: updated_data[k] for k, v in updated_data.items() if updated_data[k] != original_data.get(k)}
+
+            if not diff_data:
+                flash('لم يتم العثور على أي تغييرات لطلب التحديث.', 'info')
+                return redirect(url_for('routes.beneficiaries'))
+
             pending_change = PendingChange(
                 record_id=record_id, user_id=current_user.id, change_type='update',
-                changed_data=json.dumps(updated_data, default=str), status='pending'
+                changed_data=json.dumps(diff_data, default=str), status='pending'
             )
             db.session.add(pending_change)
             db.session.commit()
@@ -187,20 +246,35 @@ def edit_beneficiary(record_id):
 @bp.route('/delete_beneficiary/<int:record_id>', methods=['POST'])
 @login_required
 def delete_beneficiary(record_id):
-    record = Record.query.get_or_404(record_id)
+    record_to_delete = Record.query.get_or_404(record_id)
     try:
         if current_user.is_admin():
-            db.session.delete(record)
+            # If deleting a head of household, orphan their family members
+            if record_to_delete.head_of_household_id is None: # It's a head of household
+                for member in record_to_delete.family_members:
+                    member.head_of_household_id = None
+                    db.session.add(member)
+
+            db.session.delete(record_to_delete)
             db.session.commit()
-            flash('تم حذف المستفيد بنجاح', 'success')
+            flash('تم حذف المستفيد بنجاح. إذا كان رب أسرة، تم فصل أفراد أسرته.', 'success')
         else:
-            pending_change = PendingChange(
-                record_id=record_id, user_id=current_user.id,
-                change_type='delete', status='pending'
-            )
-            db.session.add(pending_change)
-            db.session.commit()
-            flash('تم إرسال طلب الحذف للمراجعة', 'info')
+            # Check if there's already a pending delete request
+            existing_pending_delete = PendingChange.query.filter_by(
+                record_id=record_id,
+                change_type='delete',
+                status='pending'
+            ).first()
+            if existing_pending_delete:
+                flash('يوجد طلب حذف معلق بالفعل لهذا المستفيد.', 'info')
+            else:
+                pending_change = PendingChange(
+                    record_id=record_id, user_id=current_user.id,
+                    change_type='delete', status='pending'
+                )
+                db.session.add(pending_change)
+                db.session.commit()
+                flash('تم إرسال طلب الحذف للمراجعة', 'info')
     except Exception as e:
         db.session.rollback()
         flash(f'حدث خطأ أثناء الحذف: {str(e)}', 'error')
@@ -224,12 +298,23 @@ def approve_change(change_id):
             if record:
                 updated_data = json.loads(change.changed_data)
                 for key, value in updated_data.items():
-                    if key == 'date_of_birth': value = datetime.strptime(value, '%Y-%m-%d').date()
+                    if key == 'date_of_birth':
+                        value = datetime.strptime(value, '%Y-%m-%d').date()
+                    elif key == 'head_of_household_id':
+                        # Ensure None is correctly interpreted if the value is empty or "null" from JSON
+                        value = int(value) if value is not None and str(value).lower() not in ["", "none", "null"] else None
                     setattr(record, key, value)
                 record.updated_at = datetime.utcnow()
         elif change.change_type == 'delete':
-            record = Record.query.get(change.record_id)
-            if record: db.session.delete(record)
+            record_to_delete = Record.query.get(change.record_id)
+            if record_to_delete:
+                # If deleting a head of household, orphan their family members
+                if record_to_delete.head_of_household_id is None: # It's a head of household
+                    for member in record_to_delete.family_members:
+                        member.head_of_household_id = None
+                        db.session.add(member)
+                db.session.delete(record_to_delete)
+
         change.status = 'approved'
         change.reviewed_by = current_user.id
         change.reviewed_at = datetime.utcnow()
@@ -298,13 +383,21 @@ def download_template():
     ws = wb.active
     ws.title = "Beneficiaries Template"
     headers = ['الاسم الأول', 'اسم الأب', 'اسم الجد', 'اسم العائلة', 'رقم الهوية/جواز السفر',
-               'تاريخ الميلاد', 'الجنس', 'الحالة الاجتماعية', 'رقم الهاتف', 'عدد أفراد الأسرة', 'العنوان']
+               'تاريخ الميلاد', 'الجنس', 'الحالة الاجتماعية', 'رقم الهاتف', 'عدد أفراد الأسرة', 'العنوان',
+               'الحالة', 'رقم هوية رب الأسرة (إن وجد)'] # Added new headers
     for col, header in enumerate(headers, 1):
         ws.cell(row=1, column=col, value=header)
+
     sample_data = ['أحمد', 'محمد', 'علي', 'الأحمد', '123456789', '1990-01-01',
-                   'ذكر', 'متزوج', '0501234567', '4', 'الرياض']
+                   'ذكر', 'متزوج', '0501234567', '4', 'الرياض', 'مكتمل', ''] # Added sample data for new columns
+    sample_member_data = ['فاطمة', 'أحمد', 'محمد', 'الأحمد', '987654321', '2015-05-10',
+                          'أنثى', 'أعزب', '', '0', 'الرياض', 'مكتمل', '123456789'] # Sample for a family member
+
     for col, data in enumerate(sample_data, 1):
         ws.cell(row=2, column=col, value=data)
+    for col, data in enumerate(sample_member_data, 1):
+        ws.cell(row=3, column=col, value=data)
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -340,15 +433,24 @@ def export_records():
     ws.title = "Beneficiaries Export"
     headers = ['ID', 'الاسم الأول', 'اسم الأب', 'اسم الجد', 'اسم العائلة', 'رقم الهوية/جواز السفر',
                'تاريخ الميلاد', 'الجنس', 'الحالة الاجتماعية', 'رقم الهاتف', 'عدد أفراد الأسرة',
-               'العنوان', 'الحالة', 'تاريخ الإنشاء']
+               'العنوان', 'الحالة', 'رقم هوية رب الأسرة', 'تاريخ الإنشاء']
     ws.append(headers)
+
     for record in records:
+        head_of_household_passport = ''
+        if record.head_of_household_id:
+            # Query for the head of household record to get their passport number
+            # This could be optimized by pre-fetching if performance becomes an issue for large exports.
+            head = Record.query.get(record.head_of_household_id)
+            if head:
+                head_of_household_passport = head.id_passport_number
+
         ws.append([
             record.id, record.first_name, record.father_name, record.grandfather_name,
             record.family_name, record.id_passport_number,
             record.date_of_birth.strftime('%Y-%m-%d'), record.gender, record.marital_status,
             record.phone_number or '', record.family_members_count, record.address or '',
-            record.status, record.created_at.strftime('%Y-%m-%d %H:%M')
+            record.status, head_of_household_passport, record.created_at.strftime('%Y-%m-%d %H:%M')
         ])
     output = BytesIO()
     wb.save(output)
@@ -407,6 +509,29 @@ def api_statistics():
         'inactive': Record.query.filter_by(status='غير نشط').count()
     })
 
+@bp.route('/api/beneficiary/<int:record_id>')
+@login_required
+def api_get_beneficiary(record_id):
+    record = Record.query.get_or_404(record_id)
+    # Convert record to dict, handle date serialization
+    record_data = {column.name: getattr(record, column.name) for column in record.__table__.columns}
+    if isinstance(record_data.get('date_of_birth'), datetime):
+        record_data['date_of_birth'] = record_data['date_of_birth'].strftime('%Y-%m-%d')
+    elif record_data.get('date_of_birth') is not None: # if it's a date object
+        record_data['date_of_birth'] = record_data['date_of_birth'].isoformat()
+
+    # created_at and updated_at are datetime objects
+    if isinstance(record_data.get('created_at'), datetime):
+        record_data['created_at'] = record_data['created_at'].isoformat()
+    if isinstance(record_data.get('updated_at'), datetime):
+        record_data['updated_at'] = record_data['updated_at'].isoformat()
+
+    # Add potential heads, excluding self
+    potential_heads = Record.query.filter(Record.id != record_id, Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+    record_data['potential_heads_options'] = [
+        {'id': p.id, 'full_name': p.full_name, 'id_passport_number': p.id_passport_number} for p in potential_heads
+    ]
+    return jsonify(record_data)
 
 # --- Settings and User Management ---
 @bp.route('/settings')

@@ -50,7 +50,15 @@ class Record(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    pending_changes = db.relationship('PendingChange', backref='record', lazy='dynamic')
+    pending_changes = db.relationship('PendingChange', backref='record', lazy='dynamic', foreign_keys='PendingChange.record_id')
+
+    # Self-referential relationship for head of household
+    head_of_household_id = db.Column(db.Integer, db.ForeignKey('records.id'), nullable=True)
+    family_members = db.relationship('Record',
+                                     backref=db.backref('head_of_household', remote_side=[id]),
+                                     lazy='dynamic',
+                                     foreign_keys='Record.head_of_household_id'
+                                    )
     
     @property
     def full_name(self):
