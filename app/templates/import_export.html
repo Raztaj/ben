@@ -170,39 +170,41 @@
     </div>
 </div>
 
-<!-- Instructions Section -->
-<div class="card mt-4">
-    <div class="card-header">
-        <i class="fas fa-question-circle"></i>
-        تعليمات مهمة
-    </div>
-    <div class="card-body">
-        <div class="form-row">
-            <div class="form-group">
-                <h5><i class="fas fa-file-import text-primary"></i> الاستيراد</h5>
-                <ul style="color: var(--gray); padding-right: 20px;">
-                    <li>تأكد من استخدام النموذج الصحيح المحمل من النظام</li>
-                    <li>يجب ملء جميع الحقول المطلوبة (الاسم، رقم الهوية، تاريخ الميلاد)</li>
-                    <li>تأكد من صحة تنسيق التواريخ (YYYY-MM-DD)</li>
-                    <li>أرقام الهوية يجب أن تكون فريدة ولا تحتوي على تكرار</li>
-                    <li>أرقام الهاتف يجب أن تبدأ بـ 05 وتحتوي على 10 أرقام</li>
-                </ul>
+<!-- Instructions Accordion -->
+<div class="accordion-container mt-4">
+    <div class="accordion-item">
+        <button class="accordion-header">
+            <span><i class="fas fa-question-circle"></i> تعليمات مهمة</span>
+            <i class="fas fa-chevron-down accordion-icon"></i>
+        </button>
+        <div class="accordion-content">
+            <div class="form-row">
+                <div class="form-group">
+                    <h5><i class="fas fa-file-import text-primary"></i> الاستيراد</h5>
+                    <ul style="color: var(--gray); padding-right: 20px;">
+                        <li>تأكد من استخدام النموذج الصحيح المحمل من النظام</li>
+                        <li>يجب ملء جميع الحقول المطلوبة (الاسم، رقم الهوية، تاريخ الميلاد)</li>
+                        <li>تأكد من صحة تنسيق التواريخ (YYYY-MM-DD)</li>
+                        <li>أرقام الهوية يجب أن تكون فريدة ولا تحتوي على تكرار</li>
+                        <li>أرقام الهاتف يجب أن تبدأ بـ 05 وتحتوي على 10 أرقام</li>
+                    </ul>
+                </div>
+
+                <div class="form-group">
+                    <h5><i class="fas fa-file-export text-secondary"></i> التصدير</h5>
+                    <ul style="color: var(--gray); padding-right: 20px;">
+                        <li>يمكن تصدير البيانات بعدة أشكال حسب الحاجة</li>
+                        <li>التصدير المفلتر يعتمد على آخر فلاتر مطبقة في صفحة المستفيدين</li>
+                        <li>جميع الملفات المصدرة تحتوي على معلومات كاملة للمستفيدين</li>
+                        <li>يمكن استخدام الملفات المصدرة كنسخ احتياطية</li>
+                    </ul>
+                </div>
             </div>
 
-            <div class="form-group">
-                <h5><i class="fas fa-file-export text-secondary"></i> التصدير</h5>
-                <ul style="color: var(--gray); padding-right: 20px;">
-                    <li>يمكن تصدير البيانات بعدة أشكال حسب الحاجة</li>
-                    <li>التصدير المفلتر يعتمد على آخر فلاتر مطبقة في صفحة المستفيدين</li>
-                    <li>جميع الملفات المصدرة تحتوي على معلومات كاملة للمستفيدين</li>
-                    <li>يمكن استخدام الملفات المصدرة كنسخ احتياطية</li>
-                </ul>
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>تحذير:</strong> عملية الاستيراد لا يمكن التراجع عنها. تأكد من صحة البيانات قبل الرفع.
             </div>
-        </div>
-
-        <div class="alert alert-warning">
-            <i class="fas fa-exclamation-triangle"></i>
-            <strong>تحذير:</strong> عملية الاستيراد لا يمكن التراجع عنها. تأكد من صحة البيانات قبل الرفع.
         </div>
     </div>
 </div>

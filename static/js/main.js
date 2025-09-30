@@ -8,6 +8,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeSearch();
     initializeDatePickers();
     initializeTooltips();
+    initializeScrollFeatures();
+    initializeThemeSwitcher();
+    initializeAccordion();
+    initializeGuidedTour();
 });
 
 // Modal Management
@@ -431,66 +435,277 @@ function formatPhoneNumber(phone) {
 
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(function() {
-        showNotification('تم نسخ النص', 'success');
+        showToast('تم نسخ النص', 'success');
     }).catch(function() {
-        // Fallback for older browsers
         const textArea = document.createElement('textarea');
         textArea.value = text;
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        showNotification('تم نسخ النص', 'success');
+        showToast('تم نسخ النص', 'success');
     });
 }
 
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 20px;
-        border-radius: 6px;
-        color: white;
-        font-weight: 500;
-        z-index: 3000;
-        transform: translateX(100%);
-        transition: transform 0.3s ease;
-    `;
-    
-    // Set background color based on type
-    const colors = {
-        success: 'var(--primary)',
-        error: 'var(--danger)',
-        warning: 'var(--warning)',
-        info: 'var(--info)'
+function showToast(message, type = 'info', duration = 5000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-times-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
     };
-    notification.style.backgroundColor = colors[type] || colors.info;
-    
-    document.body.appendChild(notification);
-    
-    // Animate in
+
+    toast.innerHTML = `
+        <i class="fas ${icons[type] || icons.info} toast-icon"></i>
+        <div class="toast-message">${message}</div>
+        <button class="toast-close">&times;</button>
+    `;
+
+    container.appendChild(toast);
+
+    // Show toast
     setTimeout(() => {
-        notification.style.transform = 'translateX(0)';
+        toast.classList.add('show');
     }, 100);
-    
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-        notification.style.transform = 'translateX(100%)';
+
+    // Hide and remove toast
+    const hideTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 400);
+    }, duration);
+
+    // Close button
+    toast.querySelector('.toast-close').addEventListener('click', () => {
+        clearTimeout(hideTimeout);
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 400);
+    });
+}
+
+function showFlashedToasts(messages) {
+    messages.forEach((msg, index) => {
         setTimeout(() => {
-            notification.remove();
-        }, 300);
-    }, 3000);
+            showToast(msg.message, msg.category);
+        }, index * 300); // Stagger the appearance of multiple toasts
+    });
+}
+
+// Theme Switcher
+function initializeThemeSwitcher() {
+    const themeToggle = document.getElementById('theme-toggle');
+    if (!themeToggle) return;
+
+    const body = document.body;
+    const icon = themeToggle.querySelector('i');
+
+    // Function to apply theme
+    const applyTheme = (theme) => {
+        if (theme === 'dark') {
+            body.classList.add('dark-mode');
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        } else {
+            body.classList.remove('dark-mode');
+            icon.classList.remove('fa-sun');
+            icon.classList.add('fa-moon');
+        }
+    };
+
+    // Check for saved theme in localStorage
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    applyTheme(savedTheme);
+
+    // Add event listener
+    themeToggle.addEventListener('click', () => {
+        const newTheme = body.classList.contains('dark-mode') ? 'light' : 'dark';
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+    });
+}
+
+// Guided Tour
+function initializeGuidedTour() {
+    const startTourBtn = document.getElementById('startTourBtn');
+    if (!startTourBtn) return;
+
+    const tourOverlay = document.getElementById('tour-overlay');
+    const tourPopup = document.getElementById('tour-popup');
+    const tourTitle = document.getElementById('tour-title');
+    const tourDescription = document.getElementById('tour-description');
+    const tourPrev = document.getElementById('tour-prev');
+    const tourNext = document.getElementById('tour-next');
+    const tourEnd = document.getElementById('tour-end');
+
+    const tourSteps = [
+        {
+            element: '.sidebar',
+            title: 'القائمة الرئيسية',
+            description: 'هنا يمكنك التنقل بين جميع أقسام النظام.'
+        },
+        {
+            element: '.stats-grid',
+            title: 'إحصائيات سريعة',
+            description: 'توفر لك هذه البطاقات نظرة سريعة على البيانات الهامة.'
+        },
+        {
+            element: '.search-section',
+            title: 'البحث السريع',
+            description: 'استخدم هذا الحقل للبحث عن أي مستفيد في النظام.'
+        },
+        {
+            element: 'a[href*="beneficiaries"]',
+            title: 'إدارة المستفيدين',
+            description: 'من هنا يمكنك إضافة، تعديل، وحذف المستفيدين.'
+        },
+        {
+            element: 'a[href*="import_export"]',
+            title: 'استيراد وتصدير',
+            description: 'يمكنك استيراد بيانات جديدة أو تصدير البيانات الحالية من هذا القسم.'
+        }
+    ];
+
+    let currentStep = 0;
+    let highlightedElement = null;
+
+    function startTour() {
+        currentStep = 0;
+        tourOverlay.style.display = 'block';
+        tourPopup.style.display = 'block';
+        showStep(currentStep);
+    }
+
+    function endTour() {
+        tourOverlay.style.display = 'none';
+        tourPopup.style.display = 'none';
+        if (highlightedElement) {
+            highlightedElement.classList.remove('tour-highlight');
+            highlightedElement = null;
+        }
+    }
+
+    function showStep(stepIndex) {
+        if (stepIndex < 0 || stepIndex >= tourSteps.length) {
+            endTour();
+            return;
+        }
+
+        currentStep = stepIndex;
+        const step = tourSteps[stepIndex];
+
+        if (highlightedElement) {
+            highlightedElement.classList.remove('tour-highlight');
+        }
+
+        const targetElement = document.querySelector(step.element);
+        if (targetElement) {
+            highlightedElement = targetElement;
+            highlightedElement.classList.add('tour-highlight');
+
+            const rect = highlightedElement.getBoundingClientRect();
+            tourPopup.style.top = `${rect.bottom + 10}px`;
+            tourPopup.style.left = `${rect.left}px`;
+
+            // Adjust if popup is off-screen
+            if (rect.left + tourPopup.offsetWidth > window.innerWidth) {
+                tourPopup.style.left = `${window.innerWidth - tourPopup.offsetWidth - 20}px`;
+            }
+        } else {
+            // Default position if element not found
+            tourPopup.style.top = '50%';
+            tourPopup.style.left = '50%';
+            tourPopup.style.transform = 'translate(-50%, -50%)';
+        }
+
+        tourTitle.textContent = step.title;
+        tourDescription.textContent = step.description;
+
+        tourPrev.disabled = currentStep === 0;
+        tourNext.textContent = currentStep === tourSteps.length - 1 ? 'إنهاء' : 'التالي';
+    }
+
+    startTourBtn.addEventListener('click', startTour);
+    tourEnd.addEventListener('click', endTour);
+    tourOverlay.addEventListener('click', endTour);
+
+    tourNext.addEventListener('click', () => {
+        showStep(currentStep + 1);
+    });
+
+    tourPrev.addEventListener('click', () => {
+        showStep(currentStep - 1);
+    });
+}
+
+// Accordion
+function initializeAccordion() {
+    const accordionHeaders = document.querySelectorAll('.accordion-header');
+
+    accordionHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+            const content = header.nextElementSibling;
+            header.classList.toggle('active');
+
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+                content.style.paddingTop = null;
+                content.style.paddingBottom = null;
+            } else {
+                content.style.paddingTop = '10px';
+                content.style.paddingBottom = '20px';
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        });
+    });
+}
+
+// Scroll-based features (Progress Bar & Back to Top)
+function initializeScrollFeatures() {
+    const progressBar = document.getElementById('progressBar');
+    const backToTopBtn = document.getElementById('backToTopBtn');
+
+    if (!progressBar && !backToTopBtn) return;
+
+    window.addEventListener('scroll', () => {
+        // Progress bar logic
+        if (progressBar) {
+            const scrollTotal = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = document.documentElement.scrollTop;
+            const progress = (scrolled / scrollTotal) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+
+        // Back to top button logic
+        if (backToTopBtn) {
+            if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+                backToTopBtn.style.display = 'block';
+            } else {
+                backToTopBtn.style.display = 'none';
+            }
+        }
+    });
+
+    // Back to top click event
+    if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
 }
 
 // Export functions for use in templates
 window.BeneficiarySystem = {
     openModal,
     closeModal,
-    showNotification,
+    showToast,
+    showFlashedToasts,
     copyToClipboard,
     formatDate,
     formatPhoneNumber
