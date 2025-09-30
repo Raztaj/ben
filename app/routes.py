@@ -153,7 +153,7 @@ def beneficiaries():
     records = query.order_by(Record.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
     # Fetch potential heads of household for the 'Add/Edit' modals.
-    potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+    potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.first_name, Record.family_name).all()
 
     return render_template('beneficiaries.html', records=records, search=search, 
                            status_filter=status_filter, start_date=start_date_str, end_date=end_date_str,
@@ -173,7 +173,7 @@ def add_single_beneficiary():
             # Basic validation to prevent a record from being its own head of household.
             if head_of_household_id and 'id' in request.form and int(request.form['id']) == head_of_household_id:
                 flash('لا يمكن تعيين المستفيد كرب أسرة لنفسه.', 'error')
-                potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+                potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.first_name, Record.family_name).all()
                 return render_template('add_single_beneficiary.html', potential_heads_of_household=potential_heads, existing_record=request.form), 400
 
 
@@ -199,11 +199,11 @@ def add_single_beneficiary():
         except Exception as e:
             db.session.rollback()
             flash(f'حدث خطأ أثناء إضافة المستفيد: {str(e)}', 'error')
-            potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+            potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.first_name, Record.family_name).all()
             return render_template('add_single_beneficiary.html', potential_heads_of_household=potential_heads, existing_record=request.form), 500
 
     # For GET requests, render the form with potential heads of household.
-    potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+    potential_heads = Record.query.filter(Record.head_of_household_id.is_(None)).order_by(Record.first_name, Record.family_name).all()
     return render_template('add_single_beneficiary.html', potential_heads_of_household=potential_heads)
 
 @bp.route('/edit_beneficiary/<int:record_id>', methods=['POST'])
@@ -609,7 +609,7 @@ def api_get_beneficiary(record_id):
         record_data['updated_at'] = record_data['updated_at'].isoformat()
 
     # Include a list of potential heads of household for the dropdown, excluding the current record.
-    potential_heads = Record.query.filter(Record.id != record_id, Record.head_of_household_id.is_(None)).order_by(Record.full_name).all()
+    potential_heads = Record.query.filter(Record.id != record_id, Record.head_of_household_id.is_(None)).order_by(Record.first_name, Record.family_name).all()
     record_data['potential_heads_options'] = [
         {'id': p.id, 'full_name': p.full_name, 'id_passport_number': p.id_passport_number} for p in potential_heads
     ]
