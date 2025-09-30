@@ -27,7 +27,41 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeThemeSwitcher();
     initializeAccordion();
     initializeGuidedTour();
+    initializeDropdowns();
 });
+
+// --- Dropdown ---
+/**
+ * Initializes all dropdown menus.
+ */
+function initializeDropdowns() {
+    const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+
+    dropdownToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(event) {
+            event.stopPropagation();
+            const menu = this.nextElementSibling;
+
+            // Close other open dropdowns
+            document.querySelectorAll('.dropdown-menu.show').forEach(openMenu => {
+                if (openMenu !== menu) {
+                    openMenu.classList.remove('show');
+                }
+            });
+
+            menu.classList.toggle('show');
+        });
+    });
+
+    // Close dropdowns when clicking anywhere else on the page
+    window.addEventListener('click', function(event) {
+        if (!event.target.matches('.dropdown-toggle')) {
+            document.querySelectorAll('.dropdown-menu.show').forEach(openMenu => {
+                openMenu.classList.remove('show');
+            });
+        }
+    });
+}
 
 // --- Modal Management ---
 /**

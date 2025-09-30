@@ -5,6 +5,26 @@
 {% block page_title %}إدارة المستفيدين{% endblock %}
 
 {% block content %}
+<!-- Action Toolbar -->
+<div class="action-toolbar">
+    <a href="{{ url_for('routes.add_single_beneficiary') }}" class="btn btn-primary">
+        <i class="fas fa-user-plus"></i>
+        إضافة مستفيد جديد
+    </a>
+    <button type="button" class="btn btn-primary" data-modal-target="#addBeneficiaryModal">
+        <i class="fas fa-plus"></i>
+        إضافة سريعة
+    </button>
+    <a href="{{ url_for('routes.export_records', type='filtered', **request.args) }}" class="btn btn-secondary">
+        <i class="fas fa-file-excel"></i>
+        تصدير النتائج الحالية
+    </a>
+    <a href="{{ url_for('routes.export_records', type='all') }}" class="btn btn-secondary">
+        <i class="fas fa-database"></i>
+        تصدير الكل
+    </a>
+</div>
+
 <!-- Filters -->
 <div class="filters">
     <form method="GET" action="{{ url_for('routes.beneficiaries') }}">
@@ -49,24 +69,6 @@
             </div>
         </div>
     </form>
-</div>
-
-<!-- Action Buttons -->
-<div class="mb-3">
-    <a href="{{ url_for('routes.add_single_beneficiary') }}" class="btn btn-primary">
-        <i class="fas fa-user-plus"></i>
-        إضافة مستفيد جديد (نموذج مستقل)
-    </a>
-    
-    <button type="button" class="btn btn-primary" data-modal-target="#addBeneficiaryModal">
-        <i class="fas fa-plus"></i>
-        إضافة مستفيد جديد (نافذة منبثقة)
-    </button>
-    
-    <a href="{{ url_for('routes.export_records', type='filtered', **request.args) }}" class="btn btn-secondary">
-        <i class="fas fa-file-excel"></i>
-        تصدير النتائج الحالية
-    </a>
 </div>
 
 <!-- Beneficiaries Table -->
