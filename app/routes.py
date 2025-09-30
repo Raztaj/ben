@@ -160,7 +160,6 @@ def add_single_beneficiary():
                 gender=request.form['gender'],
                 marital_status=request.form['marital_status'],
                 phone_number=request.form.get('phone_number', ''),
-                family_members_count=int(request.form.get('family_members_count', 0)),
                 address=request.form.get('address', ''),
                 status=request.form['status'],
                 created_by_user_id=current_user.id,
@@ -193,7 +192,6 @@ def edit_beneficiary(record_id):
             'date_of_birth': request.form['date_of_birth'],
             'gender': request.form['gender'], 'marital_status': request.form['marital_status'],
             'phone_number': request.form.get('phone_number', ''),
-            'family_members_count': int(request.form.get('family_members_count', 0)),
             'address': request.form.get('address', ''), 'status': request.form['status'],
             'head_of_household_id': int(request.form.get('head_of_household_id')) if request.form.get('head_of_household_id') else None,
         }
@@ -220,7 +218,6 @@ def edit_beneficiary(record_id):
                 'date_of_birth': record.date_of_birth.strftime('%Y-%m-%d'),
                 'gender': record.gender, 'marital_status': record.marital_status,
                 'phone_number': record.phone_number or '',
-                'family_members_count': record.family_members_count,
                 'address': record.address or '', 'status': record.status,
                 'head_of_household_id': record.head_of_household_id
             }
@@ -249,15 +246,14 @@ def delete_beneficiary(record_id):
     record_to_delete = Record.query.get_or_404(record_id)
     try:
         if current_user.is_admin():
-            # If deleting a head of household, orphan their family members
-            if record_to_delete.head_of_household_id is None: # It's a head of household
-                for member in record_to_delete.family_members:
-                    member.head_of_household_id = None
-                    db.session.add(member)
+            # Prevent deleting a head of household who has family members
+            if record_to_delete.head_of_household_id is None and record_to_delete.family_members.count() > 0:
+                flash('لا يمكن حذف رب أسرة لديه أفراد أسرة مرتبطين به. يرجى أولاً إزالة أفراد الأسرة أو إعادة تعيينهم.', 'error')
+                return redirect(url_for('routes.beneficiaries'))
 
             db.session.delete(record_to_delete)
             db.session.commit()
-            flash('تم حذف المستفيد بنجاح. إذا كان رب أسرة، تم فصل أفراد أسرته.', 'success')
+            flash('تم حذف المستفيد بنجاح.', 'success')
         else:
             # Check if there's already a pending delete request
             existing_pending_delete = PendingChange.query.filter_by(
@@ -308,11 +304,16 @@ def approve_change(change_id):
         elif change.change_type == 'delete':
             record_to_delete = Record.query.get(change.record_id)
             if record_to_delete:
-                # If deleting a head of household, orphan their family members
-                if record_to_delete.head_of_household_id is None: # It's a head of household
-                    for member in record_to_delete.family_members:
-                        member.head_of_household_id = None
-                        db.session.add(member)
+                # Prevent deleting a head of household who has family members
+                if record_to_delete.head_of_household_id is None and record_to_delete.family_members.count() > 0:
+                    flash('لا يمكن حذف رب أسرة لديه أفراد أسرة مرتبطين به. تم رفض الطلب تلقائياً.', 'error')
+                    # Reject the change automatically
+                    change.status = 'rejected'
+                    change.reviewed_by = current_user.id
+                    change.reviewed_at = datetime.utcnow()
+                    db.session.commit()
+                    return redirect(url_for('routes.review_changes'))
+
                 db.session.delete(record_to_delete)
 
         change.status = 'approved'
@@ -383,15 +384,15 @@ def download_template():
     ws = wb.active
     ws.title = "Beneficiaries Template"
     headers = ['الاسم الأول', 'اسم الأب', 'اسم الجد', 'اسم العائلة', 'رقم الهوية/جواز السفر',
-               'تاريخ الميلاد', 'الجنس', 'الحالة الاجتماعية', 'رقم الهاتف', 'عدد أفراد الأسرة', 'العنوان',
-               'الحالة', 'رقم هوية رب الأسرة (إن وجد)'] # Added new headers
+               'تاريخ الميلاد', 'الجنس', 'الحالة الاجتماعية', 'رقم الهاتف', 'العنوان',
+               'الحالة', 'رقم هوية رب الأسرة (إن وجد)']
     for col, header in enumerate(headers, 1):
         ws.cell(row=1, column=col, value=header)
 
     sample_data = ['أحمد', 'محمد', 'علي', 'الأحمد', '123456789', '1990-01-01',
-                   'ذكر', 'متزوج', '0501234567', '4', 'الرياض', 'مكتمل', ''] # Added sample data for new columns
+                   'ذكر', 'متزوج', '0501234567', 'الرياض', 'مكتمل', '']
     sample_member_data = ['فاطمة', 'أحمد', 'محمد', 'الأحمد', '987654321', '2015-05-10',
-                          'أنثى', 'أعزب', '', '0', 'الرياض', 'مكتمل', '123456789'] # Sample for a family member
+                          'أنثى', 'أعزب', '', 'الرياض', 'مكتمل', '123456789']
 
     for col, data in enumerate(sample_data, 1):
         ws.cell(row=2, column=col, value=data)
@@ -439,8 +440,6 @@ def export_records():
     for record in records:
         head_of_household_passport = ''
         if record.head_of_household_id:
-            # Query for the head of household record to get their passport number
-            # This could be optimized by pre-fetching if performance becomes an issue for large exports.
             head = Record.query.get(record.head_of_household_id)
             if head:
                 head_of_household_passport = head.id_passport_number

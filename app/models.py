@@ -42,7 +42,6 @@ class Record(db.Model):
     gender = db.Column(db.Enum('ذكر', 'أنثى', name='gender_types'), nullable=False)
     marital_status = db.Column(db.Enum('أعزب', 'متزوج', 'أرمل', 'مطلق', name='marital_status_types'), nullable=False)
     phone_number = db.Column(db.String(20))
-    family_members_count = db.Column(db.Integer, default=0)
     address = db.Column(db.Text)
     status = db.Column(db.Enum('مكتمل', 'بحاجة لمراجعة', 'غير نشط', name='status_types'), nullable=False, default='بحاجة لمراجعة')
     created_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -78,6 +77,14 @@ class Record(db.Model):
         from datetime import date
         today = date.today()
         return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+
+    @property
+    def family_members_count(self):
+        # This property dynamically calculates the number of family members.
+        # It's only meaningful for a head of household.
+        if self.head_of_household_id is None:
+            return self.family_members.count()
+        return 0
 
 class PendingChange(db.Model):
     __tablename__ = 'pending_changes'
