@@ -95,19 +95,22 @@
             <!-- Export by Status -->
             <div class="form-group">
                 <label>تصدير حسب الحالة:</label>
-                <div class="btn-group" style="width: 100%; display: flex; flex-direction: column; gap: 5px;">
-                    <a href="{{ url_for('routes.export_records', type='filtered', status='مكتمل') }}" class="btn btn-sm" style="background: var(--primary); color: white;">
-                        <i class="fas fa-check-circle"></i>
-                        السجلات المكتملة
-                    </a>
-                    <a href="{{ url_for('routes.export_records', type='filtered', status='بحاجة لمراجعة') }}" class="btn btn-sm" style="background: var(--warning); color: white;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        بحاجة لمراجعة
-                    </a>
-                    <a href="{{ url_for('routes.export_records', type='filtered', status='غير نشط') }}" class="btn btn-sm" style="background: var(--danger); color: white;">
-                        <i class="fas fa-times-circle"></i>
-                        غير نشطة
-                    </a>
+                <div class="dropdown">
+                    <button class="btn btn-info dropdown-toggle" type="button" style="width: 100%;">
+                        <i class="fas fa-tags"></i>
+                        اختر الحالة للتصدير
+                    </button>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="{{ url_for('routes.export_records', type='filtered', status='مكتمل') }}">
+                            <i class="fas fa-check-circle" style="color: var(--primary);"></i> مكتمل
+                        </a>
+                        <a class="dropdown-item" href="{{ url_for('routes.export_records', type='filtered', status='بحاجة لمراجعة') }}">
+                            <i class="fas fa-exclamation-triangle" style="color: var(--warning);"></i> بحاجة لمراجعة
+                        </a>
+                        <a class="dropdown-item" href="{{ url_for('routes.export_records', type='filtered', status='غير نشط') }}">
+                            <i class="fas fa-times-circle" style="color: var(--danger);"></i> غير نشط
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -170,39 +173,41 @@
     </div>
 </div>
 
-<!-- Instructions Section -->
-<div class="card mt-4">
-    <div class="card-header">
-        <i class="fas fa-question-circle"></i>
-        تعليمات مهمة
-    </div>
-    <div class="card-body">
-        <div class="form-row">
-            <div class="form-group">
-                <h5><i class="fas fa-file-import text-primary"></i> الاستيراد</h5>
-                <ul style="color: var(--gray); padding-right: 20px;">
-                    <li>تأكد من استخدام النموذج الصحيح المحمل من النظام</li>
-                    <li>يجب ملء جميع الحقول المطلوبة (الاسم، رقم الهوية، تاريخ الميلاد)</li>
-                    <li>تأكد من صحة تنسيق التواريخ (YYYY-MM-DD)</li>
-                    <li>أرقام الهوية يجب أن تكون فريدة ولا تحتوي على تكرار</li>
-                    <li>أرقام الهاتف يجب أن تبدأ بـ 05 وتحتوي على 10 أرقام</li>
-                </ul>
+<!-- Instructions Accordion -->
+<div class="accordion-container mt-4">
+    <div class="accordion-item">
+        <button class="accordion-header">
+            <span><i class="fas fa-question-circle"></i> تعليمات مهمة</span>
+            <i class="fas fa-chevron-down accordion-icon"></i>
+        </button>
+        <div class="accordion-content">
+            <div class="form-row">
+                <div class="form-group">
+                    <h5><i class="fas fa-file-import text-primary"></i> الاستيراد</h5>
+                    <ul style="color: var(--gray); padding-right: 20px;">
+                        <li>تأكد من استخدام النموذج الصحيح المحمل من النظام</li>
+                        <li>يجب ملء جميع الحقول المطلوبة (الاسم، رقم الهوية، تاريخ الميلاد)</li>
+                        <li>تأكد من صحة تنسيق التواريخ (YYYY-MM-DD)</li>
+                        <li>أرقام الهوية يجب أن تكون فريدة ولا تحتوي على تكرار</li>
+                        <li>أرقام الهاتف يجب أن تبدأ بـ 05 وتحتوي على 10 أرقام</li>
+                    </ul>
+                </div>
+
+                <div class="form-group">
+                    <h5><i class="fas fa-file-export text-secondary"></i> التصدير</h5>
+                    <ul style="color: var(--gray); padding-right: 20px;">
+                        <li>يمكن تصدير البيانات بعدة أشكال حسب الحاجة</li>
+                        <li>التصدير المفلتر يعتمد على آخر فلاتر مطبقة في صفحة المستفيدين</li>
+                        <li>جميع الملفات المصدرة تحتوي على معلومات كاملة للمستفيدين</li>
+                        <li>يمكن استخدام الملفات المصدرة كنسخ احتياطية</li>
+                    </ul>
+                </div>
             </div>
 
-            <div class="form-group">
-                <h5><i class="fas fa-file-export text-secondary"></i> التصدير</h5>
-                <ul style="color: var(--gray); padding-right: 20px;">
-                    <li>يمكن تصدير البيانات بعدة أشكال حسب الحاجة</li>
-                    <li>التصدير المفلتر يعتمد على آخر فلاتر مطبقة في صفحة المستفيدين</li>
-                    <li>جميع الملفات المصدرة تحتوي على معلومات كاملة للمستفيدين</li>
-                    <li>يمكن استخدام الملفات المصدرة كنسخ احتياطية</li>
-                </ul>
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>تحذير:</strong> عملية الاستيراد لا يمكن التراجع عنها. تأكد من صحة البيانات قبل الرفع.
             </div>
-        </div>
-
-        <div class="alert alert-warning">
-            <i class="fas fa-exclamation-triangle"></i>
-            <strong>تحذير:</strong> عملية الاستيراد لا يمكن التراجع عنها. تأكد من صحة البيانات قبل الرفع.
         </div>
     </div>
 </div>

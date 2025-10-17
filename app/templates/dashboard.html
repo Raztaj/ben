@@ -153,6 +153,11 @@
         <i class="fas fa-chart-bar"></i>
         عرض التقارير
     </a>
+
+    <button id="startTourBtn" class="btn btn-info">
+        <i class="fas fa-map-signs"></i>
+        بدء الجولة التعريفية
+    </button>
     
     {% if current_user.is_admin() and stats.pending_changes_count > 0 %}
     <a href="{{ url_for('routes.review_changes') }}" class="btn btn-warning">

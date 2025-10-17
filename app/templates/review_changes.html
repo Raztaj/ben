@@ -121,7 +121,6 @@
                 gender: '{{ change.record.gender }}',
                 marital_status: '{{ change.record.marital_status }}',
                 phone_number: '{{ change.record.phone_number or "" }}',
-                family_members_count: {{ change.record.family_members_count or 0 }},
                 address: `{{ change.record.address or "" }}`,
                 status: '{{ change.record.status }}'
             }
@@ -137,7 +136,7 @@
             'first_name': 'الاسم الأول', 'father_name': 'اسم الأب', 'grandfather_name': 'اسم الجد',
             'family_name': 'اسم العائلة', 'id_passport_number': 'رقم الهوية/جواز السفر',
             'date_of_birth': 'تاريخ الميلاد', 'gender': 'الجنس', 'marital_status': 'الحالة الاجتماعية',
-            'phone_number': 'رقم الهاتف', 'family_members_count': 'عدد أفراد الأسرة',
+            'phone_number': 'رقم الهاتف',
             'address': 'العنوان', 'status': 'الحالة'
         };
 

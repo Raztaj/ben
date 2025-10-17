@@ -71,10 +71,6 @@
                     <input type="tel" id="phone_number" name="phone_number" class="form-control" placeholder="05xxxxxxxx">
                 </div>
                 
-                <div class="form-group col-md-6">
-                    <label for="family_members_count">عدد أفراد الأسرة</label>
-                    <input type="number" id="family_members_count" name="family_members_count" class="form-control" min="0" value="0">
-                </div>
             </div>
             
             <div class="form-group">
@@ -88,6 +84,18 @@
                     <option value="مكتمل">مكتمل</option>
                     <option value="بحاجة لمراجعة" selected>بحاجة لمراجعة</option>
                     <option value="غير نشط">غير نشط</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="head_of_household_id">رب الأسرة (اختياري)</label>
+                <select id="head_of_household_id" name="head_of_household_id" class="form-control">
+                    <option value="">-- لا يوجد (هذا المستفيد هو رب أسرة مستقل) --</option>
+                    {% for potential_head in potential_heads_of_household %}
+                        <option value="{{ potential_head.id }}" {% if existing_record and existing_record.head_of_household_id == potential_head.id %}selected{% endif %}>
+                            {{ potential_head.full_name }} ({{ potential_head.id_passport_number }})
+                        </option>
+                    {% endfor %}
                 </select>
             </div>
             
